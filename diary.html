@@ -125,10 +125,12 @@ body {
   justify-content: center;
   font-size: 11px;
   border-radius: 50%;
-  cursor: default;
+  cursor: pointer;
   color: var(--ink-light);
   position: relative;
 }
+.cal-day:hover { background: rgba(139,78,42,0.08); }
+.cal-day.other-month { pointer-events: none; }
 .cal-day.has-entry {
   background: var(--accent);
   color: #faf7f2;
@@ -713,7 +715,7 @@ function renderStreak() {
   for (let i = 0; i < 365; i++) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    const ds = d.toISOString().split('T')[0];
+    const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     if (dates.has(ds)) streak++;
     else if (i > 0) break;
   }
@@ -726,7 +728,7 @@ function renderCalendar() {
   const label = `${calYear}年${calMonth+1}月`;
   document.getElementById('cal-month-label').textContent = label;
   const dates = new Set(entries.map(e => e.date));
-  const today = new Date().toISOString().split('T')[0];
+  const today = (() => { const _d = new Date(); return `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}-${String(_d.getDate()).padStart(2,'0')}`; })();
   const grid = document.getElementById('cal-grid');
   const dows = ['日','月','火','水','木','金','土'];
   let html = dows.map(d => `<div class="cal-dow">${d}</div>`).join('');
@@ -743,7 +745,7 @@ function renderCalendar() {
     const isToday = ds === today;
     const isSelected = currentId && entries.find(e => e.id === currentId)?.date === ds;
     const cls = ['cal-day', hasEntry ? 'has-entry' : '', isToday ? 'today' : '', isSelected ? 'selected' : ''].filter(Boolean).join(' ');
-    const click = hasEntry ? `onclick="openEntryByDate('${ds}')"` : '';
+    const click = ds >= '2020-01-01' ? `onclick="openOrCreateEntry('${ds}')"` : '';
     html += `<div class="${cls}" ${click}>${d}</div>`;
   }
   grid.innerHTML = html;
@@ -753,8 +755,17 @@ function calPrev() { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; }
 function calNext() { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderCalendar(); }
 
 function openEntryByDate(ds) {
-  const e = entries.find(e => e.date === ds);
-  if (e) openEntry(e.id);
+  openOrCreateEntry(ds);
+}
+function openOrCreateEntry(ds) {
+  const existing = entries.find(e => e.date === ds);
+  if (existing) { openEntry(existing.id); return; }
+  const id = 'e_' + Date.now();
+  entries.unshift({ id, date: ds, reflection: '', learning: '', gratitude: '', mood: 0, tags: [], aiComment: '' });
+  entries.sort((a, b) => b.date.localeCompare(a.date));
+  save();
+  renderAll();
+  openEntry(id);
 }
 
 /* 気分グラフ（直近14日） */
@@ -764,7 +775,7 @@ function renderMoodChart() {
   for (let i = 13; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    const ds = d.toISOString().split('T')[0];
+    const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const e = entries.find(e => e.date === ds);
     const mood = e?.mood || 0;
     const h = mood ? (mood / 5) * 100 : 4;
@@ -810,7 +821,7 @@ function searchEntries(q) {
 
 /* 新規作成 */
 function newEntry() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = (() => { const _d = new Date(); return `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}-${String(_d.getDate()).padStart(2,'0')}`; })();
   const existing = entries.find(e => e.date === today);
   if (existing) { openEntry(existing.id); return; }
   const id = 'e_' + Date.now();
@@ -857,7 +868,7 @@ function openEntry(id) {
   // 1ヶ月前
   const oneMonthAgo = new Date(d);
   oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-  const omaDate = oneMonthAgo.toISOString().split('T')[0];
+  const omaDate = `${oneMonthAgo.getFullYear()}-${String(oneMonthAgo.getMonth()+1).padStart(2,'0')}-${String(oneMonthAgo.getDate()).padStart(2,'0')}`;
   const omaEntry = entries.find(e => e.date === omaDate);
   const omaDiv = document.getElementById('one-month-ago');
   if (omaEntry) {
