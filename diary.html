@@ -760,12 +760,28 @@ function openEntryByDate(ds) {
 function openOrCreateEntry(ds) {
   const existing = entries.find(e => e.date === ds);
   if (existing) { openEntry(existing.id); return; }
-  const id = 'e_' + Date.now();
-  entries.unshift({ id, date: ds, reflection: '', learning: '', gratitude: '', mood: 0, tags: [], aiComment: '' });
-  entries.sort((a, b) => b.date.localeCompare(a.date));
-  save();
-  renderAll();
-  openEntry(id);
+  // 既存なし → 編集エリアだけ開く（エントリはまだ作らない）
+  openDraft(ds);
+}
+
+function openDraft(ds) {
+  currentId = '__draft__';
+  window._draftDate = ds;
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('editor').style.display = 'block';
+  const d = new Date(ds + 'T00:00:00');
+  document.getElementById('entry-date-display').textContent = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
+  document.getElementById('entry-day-display').textContent = `（${DAYS[d.getDay()]}）`;
+  document.getElementById('field-reflection').value = '';
+  document.getElementById('field-learning').value = '';
+  document.getElementById('field-gratitude').value = '';
+  document.getElementById('saved-badge').className = 'saved-badge';
+  currentMood = 0; renderMoodStars();
+  currentTags = [];
+  document.querySelectorAll('.tag').forEach(t => t.classList.remove('selected'));
+  document.getElementById('ai-comment').className = 'ai-comment';
+  document.getElementById('monthly-summary').className = 'monthly-summary';
+  document.getElementById('one-month-ago').className = 'one-month-ago';
 }
 
 /* 気分グラフ（直近14日） */
@@ -824,11 +840,7 @@ function newEntry() {
   const today = (() => { const _d = new Date(); return `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}-${String(_d.getDate()).padStart(2,'0')}`; })();
   const existing = entries.find(e => e.date === today);
   if (existing) { openEntry(existing.id); return; }
-  const id = 'e_' + Date.now();
-  entries.unshift({ id, date: today, reflection: '', learning: '', gratitude: '', mood: 0, tags: [], aiComment: '' });
-  save();
-  renderAll();
-  openEntry(id);
+  openDraft(today);
 }
 
 /* エントリを開く */
@@ -911,6 +923,14 @@ function toggleTag(el) {
 /* 保存 */
 function saveEntry() {
   if (!currentId) return;
+  if (currentId === '__draft__') {
+    // 初回保存：エントリを新規作成
+    const id = 'e_' + Date.now();
+    const ds = window._draftDate;
+    entries.unshift({ id, date: ds, reflection: '', learning: '', gratitude: '', mood: 0, tags: [], aiComment: '' });
+    entries.sort((a, b) => b.date.localeCompare(a.date));
+    currentId = id;
+  }
   const idx = entries.findIndex(e => e.id === currentId);
   if (idx < 0) return;
   entries[idx].reflection = document.getElementById('field-reflection').value;
